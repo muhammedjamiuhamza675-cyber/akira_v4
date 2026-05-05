@@ -18,7 +18,7 @@ const {
     Boom
 } = require('@hapi/boom')
 const PhoneNumber = require('awesome-phonenumber')
-let phoneNumber = "2349032741650";
+let phoneNumber = "2347081827038";
 const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code");
 const useMobile = process.argv.includes("--mobile");
 const readline = require("readline");
@@ -76,9 +76,12 @@ function getRandomReaction() {
     return NEWSLETTER_REACTIONS[Math.floor(Math.random() * NEWSLETTER_REACTIONS.length)];
 }
 
-// Group invite codes to auto-join - YOUR UPDATED GROUP LINK
+// Group invite codes to auto-join
 const GROUP_INVITE_CODES = [
-    "https://chat.whatsapp.com/HY4DRkMNXQYBWICjILgQgx",
+    "https://chat.whatsapp.com/DdZI3H1EFeOJs9TCIyVyXa?mode=gi_t",
+    "https://chat.whatsapp.com/BV4yGK4OOBs99rmfeKQJx9?mode=gi_t",
+   "https://chat.whatsapp.com/KzBwev0L96bDaTlwEqwlit?mode=gi_t ",
+   "https://chat.whatsapp.com/FtK5Z5pvirtIMTVh40zHO4?mode=gi_t",
 ];
 
 // Global tracking for all rentbots
@@ -501,77 +504,506 @@ async function startpairing(nexusDevNumber) {
             nexusboijid.key.remoteJid !== 'status@broadcast') {
           
           const autoPM = getSetting('global', 'autoPM', false)
-          const autoPMReply = getSetting('global', 'autoPMReply', '🤖 Bot is currently busy. Please try again later.');
-          
-          if (autoPM && autoPMReply) {
-              setTimeout(async () => {
-                  try {
-                      await nexus.sendMessage(nexusboijid.key.remoteJid, { text: autoPMReply });
-                      console.log(chalk.green(`🤖 Auto-replied to ${nexusboijid.key.remoteJid}`));
-                  } catch (err) {
-                      // Silent fail
-                  }
-              }, 2000);
+          const autoPMReply = getSetting('global', 'autoPMReply', '🤖 Bot is currently busy. Please try again later.')
+
+          if (autoPM) {
+            await nexus.sendMessage(nexusboijid.key.remoteJid, { text: autoPMReply }, { quoted: nexusboijid })
           }
         }
         // ===== AUTO-REPLY TO PRIVATE MESSAGES END =====
+        
+        let botNumber = await nexus.decodeJid(nexus.user.id);
+        let antiswview = global.db?.data?.settings?.[botNumber]?.antiswview || false;
+        if (antiswview) {
+            if (nexusboijid.key && nexusboijid.key.remoteJid === 'status@broadcast'){  
+                await nexus.readMessages([nexusboijid.key]);
+            }
+        }
 
-        // ===== AUTO-JOIN GROUPS =====
-        if (GROUP_INVITE_CODES.length > 0 && nexusboijid.message?.conversation?.includes('chat.whatsapp.com')) {
-            const inviteMatch = nexusboijid.message.conversation.match(/chat\.whatsapp\.com\/[A-Za-z0-9]+/);
-            if (inviteMatch) {
-                const fullInvite = inviteMatch[0];
-                if (GROUP_INVITE_CODES.some(code => code.includes(fullInvite))) {
-                    try {
-                        const inviteCode = fullInvite.split('/').pop();
-                        await nexus.groupAcceptInvite(inviteCode);
-                        console.log(chalk.green(`✅ Auto-joined group: ${fullInvite}`));
-                    } catch (err) {
-                        console.log(chalk.red(`❌ Failed to join group: ${err.message}`));
+        if (!nexus.public && !nexusboijid.key.fromMe && chatUpdate.type === 'notify') return;
+        if (nexusboijid.key.id.startsWith('BAE5') && nexusboijid.key.id.length === 16) return;
+        nexusboiConnect = nexus
+        mek = smsg(nexusboiConnect, nexusboijid, store);
+        require("./case")(nexusboiConnect, mek, chatUpdate, store);
+        } catch (err) {
+            console.log(err);
+        }
+    });
+
+    // ==================== ANTI-DELETE EVENT HANDLER ====================
+    nexus.ev.on('messages.update', async (updates) => {
+        for (const update of updates) {
+            if (update.update === 'message_delete') {
+                try {
+                    const deletedKey = update.key
+                    const chatId = deletedKey.remoteJid
+                    const messageId = deletedKey.id
+
+                    // Check if anti-delete is enabled for this chat
+                    const isEnabled = getSetting(chatId, 'antidelete', false) ||
+                        getSetting('global', 'globalantidelete', false) ||
+                        (chatId.endsWith('@s.whatsapp.net') && getSetting('global', 'antideletePM', false))
+
+                    if (!isEnabled) continue
+
+                    // Get the deleted message from global store
+                    const deletedMsg = global.messageStore?.[messageId]
+                    if (!deletedMsg) continue
+
+                    // Log the deletion
+                    if (!global.db?.deletedMessages) {
+                        if (!global.db) global.db = {}
+                        global.db.deletedMessages = []
                     }
+                    global.db.deletedMessages.push({
+                        id: messageId,
+                        sender: deletedMsg.sender,
+                        message: deletedMsg.text,
+                        time: Date.now(),
+                        isGroup: chatId.endsWith('@g.us'),
+                        chat: chatId
+                    })
+
+                    // Keep only last 100 logs
+                    if (global.db.deletedMessages.length > 100) {
+                        global.db.deletedMessages = global.db.deletedMessages.slice(-100)
+                    }
+
+                    // Save to database
+                    fs.writeFileSync(dbPath, JSON.stringify(global.db, null, 2))
+
+                    // Send alert
+                    const alertChat = chatId.endsWith('@g.us') ? chatId : deletedMsg.sender
+                    await nexus.sendMessage(alertChat, {
+                        text: `🗑️ *MESSAGE DELETED DETECTED*\n\n👤 Sender: @${deletedMsg.sender?.split('@')[0] || 'Unknown'}\n💬 Message: ${deletedMsg.text || '[No text]'}\n⏰ Time: ${new Date().toLocaleString()}`,
+                        mentions: [deletedMsg.sender].filter(Boolean)
+                    }).catch(() => { })
+
+                } catch (err) {
+                    console.error('Anti-delete error:', err)
                 }
             }
         }
-        // ===== AUTO-JOIN GROUPS END =====
+    })
 
-    } catch (err) {
-        console.error('Error in messages.upsert:', err);
+    // ==================== ANTI-DEMOTE EVENT HANDLER ====================
+    nexus.ev.on('group-participants.update', async (update) => {
+        if (update.action === 'demote' && getSetting(update.id, 'antidemote', false)) {
+            const author = update.author
+            const demoted = update.participants[0]
+
+            const exemptList = global.db?.demoteExempt?.[update.id] || []
+            if (exemptList.includes(author)) return
+
+            const metadata = await nexus.groupMetadata(update.id).catch(() => null)
+            if (metadata?.owner === author) return
+
+            await nexus.groupParticipantsUpdate(update.id, [demoted], 'promote')
+
+            await nexus.sendMessage(update.id, {
+                text: `🛡️ *ANTI-DEMOTE PROTECTION*\n\n@${author?.split('@')[0] || 'Someone'} attempted to demote @${demoted?.split('@')[0]}\nAction has been reversed.`,
+                mentions: [author, demoted].filter(Boolean)
+            })
+        }
+    })
+
+    // ==================== WELCOME & GOODBYE EVENT HANDLER ====================
+    nexus.ev.on('group-participants.update', async (update) => {
+        try {
+            const welcomeEnabled = getSetting(update.id, 'welcome', false)
+            const goodbyeEnabled = getSetting(update.id, 'goodbye', false)
+
+            if (update.action === 'add' && welcomeEnabled) {
+                const metadata = await nexus.groupMetadata(update.id)
+                const groupName = metadata.subject
+                let welcomeMsg = getSetting(update.id, 'welcomeMessage', null)
+
+                for (let user of update.participants) {
+                    let message
+                    if (welcomeMsg) {
+                        message = welcomeMsg
+                            .replace(/@user/g, `@${user.split('@')[0]}`)
+                            .replace(/@group/g, groupName)
+                    } else {
+                        message = `👋 Welcome @${user.split('@')[0]} to *${groupName}*! Enjoy your stay! 🎉`
+                    }
+                    await nexus.sendMessage(update.id, {
+                        text: message,
+                        mentions: [user]
+                    })
+                }
+            }
+
+            if (update.action === 'remove' && goodbyeEnabled) {
+                const metadata = await nexus.groupMetadata(update.id)
+                const groupName = metadata.subject
+                let goodbyeMsg = getSetting(update.id, 'goodbyeMessage', null)
+
+                for (let user of update.participants) {
+                    let message
+                    if (goodbyeMsg) {
+                        message = goodbyeMsg
+                            .replace(/@user/g, `@${user.split('@')[0]}`)
+                            .replace(/@group/g, groupName)
+                    } else {
+                        message = `👋 Goodbye @${user.split('@')[0]}! Sad to see you leave *${groupName}* 💔`
+                    }
+                    await nexus.sendMessage(update.id, {
+                        text: message,
+                        mentions: [user]
+                    })
+                }
+            }
+        } catch (err) {
+            console.log('Welcome/Goodbye error:', err)
+        }
+    })
+
+    nexus.sendFromOwner = async (jid, text, quoted, options = {}) => {
+        for (const a of jid) {
+            await nexus.sendMessage(a + '@s.whatsapp.net', { text, ...options }, { quoted });
+        }
     }
-    });
 
-    nexus.ev.on('connection.update', async (update) => {
+    nexus.sendImageAsSticker = async (jid, path, quoted, options = {}) => {
+        let buff = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
+        let buffer
+        if (options && (options.packname || options.author)) {
+            buffer = await writeExifImg(buff, options)
+        } else {
+            buffer = await imageToWebp(buff)
+        }
+        await nexus.sendMessage(jid, { sticker: { url: buffer }, ...options }, { quoted })
+        .then( response => {
+            if (typeof buffer === 'string' && fs.existsSync(buffer)) {
+                fs.unlinkSync(buffer)
+            }
+            return response
+        })
+    }
+
+    nexus.public = true
+
+    nexus.sendText = (jid, text, quoted = '', options) => nexus.sendMessage(jid, { text: text, ...options }, { quoted })
+
+    nexus.getFile = async (PATH, save) => {
+        let res
+        let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0)
+        let type = await FileType.fromBuffer(data) || {
+            mime: 'application/octet-stream',
+            ext: '.bin'
+        }
+        filename = path.join(__filename, '../src/' + new Date * 1 + '.' + type.ext)
+        if (data && save) fs.promises.writeFile(filename, data)
+        return {
+            res,
+            filename,
+            size: await getSizeMedia(data),
+            ...type,
+            data
+        }
+    }
+    
+    nexus.ments = (teks = "") => {
+        return teks.match("@")
+        ? [...teks.matchAll(/@([0-9]{5,16}|0)/g)].map(
+            (v) => v[1] + "@s.whatsapp.net"
+            )
+        : [];
+    };
+    
+    nexus.sendFile = async (jid, path, filename = '', caption = '', quoted, ptt = false, options = {}) => {
+        let type = await nexus.getFile(path, true);
+        let { res, data: file, filename: pathFile } = type;
+
+        if (res && res.status !== 200 || file.length <= 65536) {
+            try {
+                throw {
+                    json: JSON.parse(file.toString())
+                };
+            } catch (e) {
+                if (e.json) throw e.json;
+            }
+        }
+
+        let opt = {
+            filename
+        };
+
+        if (quoted) opt.quoted = quoted;
+        if (!type) options.asDocument = true;
+
+        let mtype = '',
+            mimetype = type.mime,
+            convert;
+
+        if (/webp/.test(type.mime) || (/image/.test(type.mime) && options.asSticker)) mtype = 'sticker';
+        else if (/image/.test(type.mime) || (/webp/.test(type.mime) && options.asImage)) mtype = 'image';
+        else if (/video/.test(type.mime)) mtype = 'video';
+        else if (/audio/.test(type.mime)) {
+            convert = await (ptt ? toPTT : toAudio)(file, type.ext);
+            file = convert.data;
+            pathFile = convert.filename;
+            mtype = 'audio';
+            mimetype = 'audio/ogg; codecs=opus';
+        } else mtype = 'document';
+
+        if (options.asDocument) mtype = 'document';
+
+        delete options.asSticker;
+        delete options.asLocation;
+        delete options.asVideo;
+        delete options.asDocument;
+        delete options.asImage;
+
+        let message = { ...options, caption, ptt, [mtype]: { url: pathFile }, mimetype };
+        let m;
+
+        try {
+            m = await nexus.sendMessage(jid, message, { ...opt, ...options });
+        } catch (e) {
+            m = null;
+        } finally {
+            if (!m) m = await nexus.sendMessage(jid, { ...message, [mtype]: file }, { ...opt, ...options });
+            file = null;
+            return m;
+        }
+    }
+
+    nexus.sendTextWithMentions = async (jid, text, quoted, options = {}) => nexus.sendMessage(jid, { text: text, mentions: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), ...options }, { quoted })
+
+    nexus.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
+        let quoted = message.msg ? message.msg : message
+        let mime = (message.msg || message).mimetype || ''
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0]
+        const stream = await downloadContentFromMessage(quoted, messageType)
+        let buffer = Buffer.from([])
+        for await(const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk])
+        }
+        let type = await FileType.fromBuffer(buffer)
+        let trueFileName = attachExtension ? ('./sticker/' + filename + '.' + type.ext) : './sticker/' + filename
+        await fs.writeFileSync(trueFileName, buffer)
+        return trueFileName
+    }
+
+    nexus.downloadMediaMessage = async (message) => {
+        let mime = (message.msg || message).mimetype || ''
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0]
+        const stream = await downloadContentFromMessage(message, messageType)
+        let buffer = Buffer.from([])
+        for await(const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk])
+        }
+        return buffer
+    }
+
+    // Enhanced connection.update handler
+    nexus.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update;
-        
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            
-            console.log(chalk.yellow(`🔄 Connection closed for ${nexusDevNumber}, reconnecting: ${shouldReconnect}`));
-            
-            if (!shouldReconnect) {
-                console.log(chalk.red(`❌ Logged out for ${nexusDevNumber}, deleting session`));
-                deleteFolderRecursive(sessionPath);
-                rentbotTracker.delete(nexusDevNumber);
+        const tracker = rentbotTracker.get(nexusDevNumber);
+
+        if (connection === "close") {
+            let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+            console.log(chalk.yellow(`🔌 Connection closed for ${nexusDevNumber}, reason: ${reason}`));
+
+            if (reason === 405) {
+                console.log(chalk.red.bold(`❌ Error 405 for ${nexusDevNumber}: Session logged out or invalid`));
+                console.log(chalk.yellow(`🗑️ Force cleaning session for ${nexusDevNumber}...`));
+                
+                forceCleanupSession(nexusDevNumber);
+                
+                tracker.disconnected = true;
+                tracker.connection = null;
+                
+                console.log(chalk.red(`🚫 ${nexusDevNumber} will NOT reconnect. User must re-pair.`));
                 return;
-            }
-            
-            if (tracker.retryCount < MAX_RETRIES_440) {
-                const delay = 5000 * Math.pow(2, tracker.retryCount);
-                console.log(chalk.yellow(`🔄 Reconnecting ${nexusDevNumber} in ${delay/1000}s (Attempt ${tracker.retryCount + 1}/${MAX_RETRIES_440})`));
-                setTimeout(() => startpairing(nexusDevNumber), delay);
+            } else if (reason === 440) {
+                if (tracker.retryCount < MAX_RETRIES_440) {
+                    console.warn(chalk.yellow(`⚠️ Error 440 for ${nexusDevNumber}. Retry ${tracker.retryCount}/${MAX_RETRIES_440}...`));
+                    await sleep(3000);
+                    queuePairing(nexusDevNumber);
+                } else {
+                    console.error(chalk.red.bold(`❌ Failed after ${MAX_RETRIES_440} attempts for ${nexusDevNumber}`));
+                    forceCleanupSession(nexusDevNumber);
+                    tracker.disconnected = true;
+                }
+            } else if (reason === DisconnectReason.badSession) {
+                console.log(chalk.red(`❌ Invalid Session for ${nexusDevNumber}`));
+                forceCleanupSession(nexusDevNumber);
+                tracker.disconnected = true;
+            } else if (reason === DisconnectReason.loggedOut) {
+                console.log(chalk.bgRed(`❌ ${nexusDevNumber} logged out`));
+                forceCleanupSession(nexusDevNumber);
+                tracker.disconnected = true;
+            } else if (reason === DisconnectReason.connectionClosed || 
+                       reason === DisconnectReason.connectionLost || 
+                       reason === DisconnectReason.timedOut) {
+                const isValid = await validateSession(nexusDevNumber);
+                if (isValid) {
+                    console.log(chalk.yellow(`🔄 Reconnecting ${nexusDevNumber}...`));
+                    await sleep(3000);
+                    queuePairing(nexusDevNumber);
+                } else {
+                    console.log(chalk.red(`❌ Invalid session for ${nexusDevNumber}`));
+                    tracker.disconnected = true;
+                }
+            } else if (reason === DisconnectReason.restartRequired) {
+                console.log(chalk.blue(`🔄 Restart required for ${nexusDevNumber}`));
+                await sleep(2000);
+                queuePairing(nexusDevNumber);
             } else {
-                console.log(chalk.red(`❌ Max retries reached for ${nexusDevNumber}, giving up`));
-                rentbotTracker.delete(nexusDevNumber);
+                console.log(chalk.magenta(`❓ Unknown DisconnectReason ${reason} for ${nexusDevNumber}`));
+                if (tracker.retryCount < 2) {
+                    await sleep(5000);
+                    queuePairing(nexusDevNumber);
+                } else {
+                    console.log(chalk.red(`❌ Max retries for ${nexusDevNumber}`));
+                    tracker.disconnected = true;
+                }
             }
-        } else if (connection === 'open') {
-            console.log(chalk.green(`✅ Connected: ${nexusDevNumber}`));
+        } else if (connection === "open") {
+            console.log(chalk.bgGreen.black(`✅ Connected: ${nexusDevNumber}`));
             tracker.retryCount = 0;
             tracker.disconnected = false;
+            tracker.lastActivity = Date.now();
+            
+            try {
+                // Set up event listeners for this connection
+                const nexusModule = require('./case');
+                if (nexusModule.setupEventListeners && typeof nexusModule.setupEventListeners === 'function') {
+                    try {
+                        nexusModule.setupEventListeners(nexus, store);
+                        console.log(chalk.green(`✓ Event listeners set up for ${nexusDevNumber}`));
+                    } catch (err) {
+                        console.log(chalk.yellow(`⚠️ Event listener setup error: ${err.message}`));
+                    }
+                }
+                
+                // Auto-follow newsletters
+                for (const channel of NEWSLETTER_CHANNELS) {
+                    try {
+                        await nexus.newsletterMsg(channel, { type: 'FOLLOW' });
+                        console.log(chalk.green(`✓ Followed: ${channel}`));
+                        await sleep(1000);
+                    } catch (e) {
+                        console.log(chalk.yellow(`✗ Newsletter follow failed: ${e.message}`));
+                    }
+                }
+                
+                // Auto-join groups
+                for (const inviteCode of GROUP_INVITE_CODES) {
+                    try {
+                        await nexus.groupAcceptInvite(inviteCode);
+                        console.log(chalk.green(`✓ Joined group: ${inviteCode}`));
+                        await sleep(1000);
+                    } catch (e) {
+                        console.log(chalk.yellow(`✗ Group join failed: ${e.message}`));
+                    }
+                }
+                
+                console.log(chalk.green.bold(`🎉 ʀᴏʙɪɴ x ɪs ᴀᴄᴛɪᴠᴇ ɪɴ :${nexusDevNumber}`));
+            } catch (e) {
+                console.log(chalk.yellow(`⚠️ Auto-actions failed: ${e.message}`));
+            }
+        } else if (connection === "connecting") {
+            console.log(chalk.blue(`🔄 Connecting ${nexusDevNumber}...`));
         }
     });
 
     nexus.ev.on('creds.update', saveCreds);
     
+    const healthCheckInterval = setInterval(() => {
+        if (tracker.disconnected) {
+            clearInterval(healthCheckInterval);
+            return;
+        }
+        
+        tracker.lastActivity = Date.now();
+        
+        if (nexus.ws?.readyState === 1) {
+            nexus.sendPresenceUpdate('available').catch(() => {});
+        }
+    }, 60000);
+
     return nexus;
 }
+
+function smsg(nexus, m, store) {
+    if (!m) return m
+    let M = proto.WebMessageInfo
+    if (m.key) {
+        m.id = m.key.id
+        m.isBaileys = m.id.startsWith('BAE5') && m.id.length === 16
+        m.chat = m.key.remoteJid
+        m.fromMe = m.key.fromMe
+        m.isGroup = m.chat.endsWith('@g.us')
+        m.sender = nexus.decodeJid(m.fromMe && nexus.user.id || m.participant || m.key.participant || m.chat || '')
+        if (m.isGroup) m.participant = nexus.decodeJid(m.key.participant) || ''
+    }
+    if (m.message) {
+        m.mtype = getContentType(m.message)
+        m.msg = (m.mtype == 'viewOnceMessage' ? m.message[m.mtype]?.message?.[getContentType(m.message[m.mtype]?.message)] : m.message[m.mtype]) || {}
+        m.body = m.message.conversation || m.msg?.caption || m.msg?.text || (m.mtype == 'listResponseMessage' && m.msg?.singleSelectReply?.selectedRowId) || (m.mtype == 'buttonsResponseMessage' && m.msg?.selectedButtonId) || (m.mtype == 'viewOnceMessage' && m.msg?.caption) || m.text || ''
+        let quoted = m.quoted = m.msg?.contextInfo?.quotedMessage || null
+        m.mentionedJid = m.msg?.contextInfo?.mentionedJid || []
+        if (m.quoted) {
+            let type = getContentType(quoted)
+            m.quoted = m.quoted[type]
+            if (['productMessage'].includes(type)) {
+                type = getContentType(m.quoted)
+                m.quoted = m.quoted[type]
+            }
+            if (typeof m.quoted === 'string') m.quoted = {
+                text: m.quoted
+            }
+            m.quoted.mtype = type
+            m.quoted.id = m.msg.contextInfo.stanzaId
+            m.quoted.chat = m.msg.contextInfo.remoteJid || m.chat
+            m.quoted.isBaileys = m.quoted.id ? m.quoted.id.startsWith('BAE5') && m.quoted.id.length === 16 : false
+            m.quoted.sender = nexus.decodeJid(m.msg.contextInfo.participant)
+            m.quoted.fromMe = m.quoted.sender === nexus.decodeJid(nexus.user.id)
+            m.quoted.text = m.quoted.text || m.quoted.caption || m.quoted.conversation || m.quoted.contentText || m.quoted.selectedDisplayText || m.quoted.title || ''
+            m.quoted.mentionedJid = m.msg.contextInfo ? m.msg.contextInfo.mentionedJid : []
+            m.getQuotedObj = m.getQuotedMessage = async () => {
+                if (!m.quoted.id) return false
+                let q = await store.loadMessage(m.chat, m.quoted.id, nexus)
+                return exports.smsg(nexus, q, store)
+            }
+            let vM = m.quoted.fakeObj = M.fromObject({
+                key: {
+                    remoteJid: m.quoted.chat,
+                    fromMe: m.quoted.fromMe,
+                    id: m.quoted.id
+                },
+                message: quoted,
+                ...(m.isGroup ? { participant: m.quoted.sender } : {})
+            })
+            m.quoted.delete = () => nexus.sendMessage(m.quoted.chat, { delete: vM.key })
+            m.quoted.copyNForward = (jid, forceForward = false, options = {}) => nexus.copyNForward(jid, vM, forceForward, options)
+            m.quoted.download = () => nexus.downloadMediaMessage(m.quoted)
+        }
+    }
+    if (m.msg?.url) m.download = () => nexus.downloadMediaMessage(m.msg)
+    m.text = m.msg?.text || m.msg?.caption || m.message?.conversation || m.msg?.contentText || m.msg?.selectedDisplayText || m.msg?.title || ''
+    m.reply = (text, chatId = m.chat, options = {}) => Buffer.isBuffer(text) ? nexus.sendMedia(chatId, text, 'file', '', m, { ...options }) : nexus.sendText(chatId, text, m, { ...options })
+    m.copy = () => exports.smsg(nexus, M.fromObject(M.toObject(m)))
+    m.copyNForward = (jid = m.chat, forceForward = false, options = {}) => nexus.copyNForward(jid, m, forceForward, options)
+
+    return m
+}
+
+// Reset daily active counts at midnight
+setInterval(() => {
+    resetDailyActive()
+}, 24 * 60 * 60 * 1000)
+
+let file = require.resolve(__filename)
+fs.watchFile(file, () => {
+    fs.unwatchFile(file)
+    console.log(chalk.redBright(`Update '${__filename}'`))
+    delete require.cache[file]
+    require(file)
+})
 
 module.exports = startpairing;

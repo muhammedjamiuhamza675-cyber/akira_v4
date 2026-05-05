@@ -17,16 +17,18 @@ let adminIDs = [];
 const userFilePath = path.join(__dirname, 'empirestore', 'users.json');
 let userIDs = new Set();
 
-// ========== YOUR CUSTOM SETTINGS ==========
+// ========== YOUR CUSTOM SETTINGS - FULLY ENABLED ==========
 // Owner ID - YOUR TELEGRAM ID
 const OWNER_ID = '7443685686';
 
 // Your WhatsApp Number
 const YOUR_NUMBER = '09032741650';
 
-// Required group and channels - YOUR SETUP
-const REQUIRED_GROUP = '';
-const REQUIRED_CHANNELS = [];
+// Required group and channels - YOUR SETUP (FULLY ENABLED)
+const REQUIRED_GROUP = '@hamzzylogs_group';
+const REQUIRED_CHANNELS = [
+    '@hamzzylogs',
+];
 
 // Social media links - YOUR LINKS
 const SOCIAL_LINKS = {
@@ -34,15 +36,18 @@ const SOCIAL_LINKS = {
     telegram_channels: [
         'https://t.me/hamzzylogs'
     ],
-    telegram_group: 'https://t.me/+Lt8WVN0W9bcxYjNl',
+    telegram_group: 'https://t.me/+eXwKsQjP5zE5YjNk',
     channel1: 'https://t.me/hamzzylogs',
-    channel2: 'https://t.me/hamzzylogs_channel',
-    channel3: 'https://t.me/hamzzylogs_group',
-    group1: 'https://t.me/+Lt8WVN0W9bcxYjNl',
+    channel2: 'https://t.me/hamzzylogs',
+    channel3: 'https://t.me/hamzzylogs',
+    channel4: 'https://t.me/hamzzylogs',
+    group1: 'https://t.me/+eXwKsQjP5zE5YjNk',
+    group2: 'https://t.me/+eXwKsQjP5zE5YjNk',
+    group3: 'https://t.me/+eXwKsQjP5zE5YjNk',
     developer: 'https://t.me/hamzzylogs'
 };
 
-// Bot image URL (keep or change)
+// Bot image URL
 const BOT_IMAGE_URL = 'https://i.ibb.co/RkJRkkcH/1e9a539b48ea.jpg';
 
 // Bot Title - YOUR BOT NAME
@@ -176,7 +181,7 @@ const sendJoinRequirement = (chatId) => {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '📢 JOIN CHANNEL', url: 'https://t.me/hamzzylogs' }],
-                [{ text: '👥 JOIN GROUP', url: 'https://t.me/+Lt8WVN0W9bcxYjNl' }],
+                [{ text: '👥 JOIN GROUP', url: 'https://t.me/+eXwKsQjP5zE5YjNk' }],
                 [{ text: '✅ VERIFY MEMBERSHIP', callback_data: 'check_membership' }]
             ]
         }
@@ -260,14 +265,14 @@ bot.onText(/\/start/, async (msg) => {
 
 🔧 COMMANDS:
 
-➤ /pair <number> - Connect WhatsApp device
-➤ /delpair <number> - Remove paired device  
+➤ /pair number - Connect WhatsApp device
+➤ /delpair number - Remove paired device  
 ➤ /listpair - Show paired devices
 ➤ /stats - Bot statistics
 ➤ /ping - Check response time
 ➤ /info - Bot information
-➤ /report <message> - Report an issue
-➤ /feedback <message> - Send feedback
+➤ /report message - Report an issue
+➤ /feedback message - Send feedback
 ➤ /runtime - Check bot uptime
 ➤ /help - Show all commands
 
@@ -310,21 +315,21 @@ bot.onText(/\/help/, async (msg) => {
     const caption = `
 ❓ COMMAND LIST ❓
 
-🔹 /pair <number> - Connect WhatsApp device
-🔹 /delpair <number> - Remove paired device  
+🔹 /pair number - Connect WhatsApp device
+🔹 /delpair number - Remove paired device  
 🔹 /listpair - Show paired devices
 🔹 /stats - View bot statistics
 🔹 /ping - Check bot response time
 🔹 /info - Bot information
-🔹 /report <message> - Report an issue
-🔹 /feedback <message> - Send feedback
+🔹 /report message - Report an issue
+🔹 /feedback message - Send feedback
 🔹 /runtime - Check bot uptime
 🔹 /help - Show this menu
 
 Admin Commands:
-🔸 /broadcast <message> - Send to all users
+🔸 /broadcast message - Send to all users
 🔸 /userlist - List all users
-🔸 /deleteuser <id> - Remove a user
+🔸 /deleteuser id - Remove a user
 🔸 /clean - Clean invalid sessions
 🔸 /restart - Restart the bot
 
@@ -616,7 +621,7 @@ bot.onText(/^\/report$/, requireMembership((msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(
         chatId,
-        `📝 ${BOT_TITLE} - Report System 📝\n\nUse: /report <your message>\n\nExample: /report Bot not working\n\n✅ Keep it clear and brief!`,
+        `📝 ${BOT_TITLE} - Report System 📝\n\nUse: /report [your message]\n\nExample: /report Bot not working\n\n✅ Keep it clear and brief!`,
         { parse_mode: 'HTML' }
     );
 }));
@@ -663,7 +668,7 @@ bot.onText(/^\/feedback$/, requireMembership((msg) => {
     const chatId = msg.chat.id;
     bot.sendMessage(
         chatId,
-        `💬 ${BOT_TITLE} - Feedback System 💬\n\nUse: /feedback <your message>\n\nExample: /feedback Great bot!\n\n✅ Your feedback helps us improve!`,
+        `💬 ${BOT_TITLE} - Feedback System 💬\n\nUse: /feedback [your message]\n\nExample: /feedback Great bot!\n\n✅ Your feedback helps us improve!`,
         { parse_mode: 'HTML' }
     );
 }));
@@ -752,7 +757,7 @@ bot.onText(/\/broadcast$/, (msg) => {
         return bot.sendMessage(chatId, '❌ Owner only command!', { parse_mode: 'HTML' });
     }
     
-    bot.sendMessage(chatId, '📢 Broadcast System\n\nUse: /broadcast <your message>\n\nExample: /broadcast Hello everyone!', { parse_mode: 'HTML' });
+    bot.sendMessage(chatId, '📢 Broadcast System\n\nUse: /broadcast [your message]\n\nExample: /broadcast Hello everyone!', { parse_mode: 'HTML' });
 });
 
 bot.onText(/\/broadcast (.+)/, async (msg, match) => {
@@ -849,7 +854,7 @@ bot.onText(/\/userlist$/, async (msg) => {
         response += `\n... and ${users.length - 50} more`;
     }
     
-    response += `\n\n📝 Use /deleteuser <id> to remove a user`;
+    response += `\n\n📝 Use /deleteuser [id] to remove a user`;
     
     bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
 });
@@ -940,7 +945,7 @@ bot.on('callback_query', async (callbackQuery) => {
                         reply_markup: {
                             inline_keyboard: [
                                 [{ text: '📢 JOIN CHANNEL', url: 'https://t.me/hamzzylogs' }],
-                                [{ text: '👥 JOIN GROUP', url: 'https://t.me/+Lt8WVN0W9bcxYjNl' }],
+                                [{ text: '👥 JOIN GROUP', url: 'https://t.me/+eXwKsQjP5zE5YjNk' }],
                                 [{ text: '🔄 VERIFY AGAIN', callback_data: 'check_membership' }]
                             ]
                         }
@@ -959,14 +964,14 @@ bot.on('callback_query', async (callbackQuery) => {
 
 🔧 AVAILABLE COMMANDS:
 
-➤ /pair <number> - Connect WhatsApp
-➤ /delpair <number> - Remove device  
+➤ /pair number - Connect WhatsApp
+➤ /delpair number - Remove device  
 ➤ /listpair - Show devices
 ➤ /stats - Bot statistics
 ➤ /ping - Check response time
 ➤ /info - Bot information
-➤ /report <message> - Report issue
-➤ /feedback <message> - Send feedback
+➤ /report message - Report issue
+➤ /feedback message - Send feedback
 ➤ /runtime - Check uptime
 ➤ /help - Show commands
 
@@ -998,21 +1003,21 @@ bot.on('callback_query', async (callbackQuery) => {
         const caption = `
 ❓ COMMAND LIST ❓
 
-🔹 /pair <number> - Connect WhatsApp device
-🔹 /delpair <number> - Remove paired device  
+🔹 /pair number - Connect WhatsApp device
+🔹 /delpair number - Remove paired device  
 🔹 /listpair - Show paired devices
 🔹 /stats - View bot statistics
 🔹 /ping - Check bot response time
 🔹 /info - Bot information
-🔹 /report <message> - Report an issue
-🔹 /feedback <message> - Send feedback
+🔹 /report message - Report an issue
+🔹 /feedback message - Send feedback
 🔹 /runtime - Check bot uptime
 🔹 /help - Show this menu
 
 Admin Commands:
-🔸 /broadcast <message> - Send to all users
+🔸 /broadcast message - Send to all users
 🔸 /userlist - List all users
-🔸 /deleteuser <id> - Remove a user
+🔸 /deleteuser id - Remove a user
 🔸 /clean - Clean invalid sessions
 🔸 /restart - Restart the bot
 
@@ -1081,14 +1086,14 @@ bot.onText(/\/helpgroup/, requireMembership(async (msg) => {
 /toggleantispam - Toggle anti-spam protection
 
 👮 MODERATION:
-/warn <user> - Warn a user
-/mute <user> - Mute a user
-/kick <user> - Kick a user
-/ban <user> - Ban a user
+/warn [user] - Warn a user
+/mute [user] - Mute a user
+/kick [user] - Kick a user
+/ban [user] - Ban a user
 /purge [count] - Delete recent messages
 
 👑 Owner Commands:
-/broadcast <message> - Send broadcast
+/broadcast [message] - Send broadcast
 /userlist - List all users
 /restart - Restart the bot
     `;
@@ -1103,13 +1108,16 @@ bot.onText(/\/helpgroup/, requireMembership(async (msg) => {
     
     console.log(chalk.cyan(`🤖 ${BOT_TITLE}`));
     console.log(chalk.green('✅ Bot is running...'));
-    console.log(chalk.blue(`📢 Required group: ${REQUIRED_GROUP || 'None (disabled)'}`));
-    console.log(chalk.blue(`📢 Required channels: ${REQUIRED_CHANNELS.length || 'None (disabled)'}`));
+    console.log(chalk.blue(`📢 Required group: ${REQUIRED_GROUP || 'None'}`));
+    console.log(chalk.blue(`📢 Required channels: ${REQUIRED_CHANNELS.length > 0 ? REQUIRED_CHANNELS.join(', ') : 'None'}`));
     console.log(chalk.green(`🔢 Max pairs limit: 30`));
     console.log(chalk.green(`✅ Membership checking: ${REQUIRED_CHANNELS.length > 0 ? 'ENABLED' : 'DISABLED'}`));
     console.log(chalk.green('✅ Report system: ENABLED'));
     console.log(chalk.green('✅ Feedback system: ENABLED'));
-    console.log(chalk.green('✅ Group management: DISABLED'));
+    console.log(chalk.green('✅ Group management: ENABLED'));
+    if (REQUIRED_GROUP || REQUIRED_CHANNELS.length > 0) {
+        console.log(chalk.yellow('⚠️ Make sure bot is admin in group and channels!'));
+    }
 })();
 
 // Shutdown handlers
