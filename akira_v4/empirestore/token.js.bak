@@ -1,0 +1,4 @@
+module.exports = {
+  BOT_TOKEN: '8619152071:AAFZT22JSAWxW8DhVqdwuaDwsDmfjkYqrvE',  
+  startupPassword: 'empire'
+};
